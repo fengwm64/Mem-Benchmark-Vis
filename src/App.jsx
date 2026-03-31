@@ -532,41 +532,20 @@ function QAExplorer({
   );
 }
 
-function RawPreview({ sample }) {
-  const preview = JSON.stringify(sample.raw, null, 2).slice(0, 5000);
+function QARawPanel({ rows }) {
+  const preview = JSON.stringify(rows, null, 2).slice(0, 7000);
 
   return (
-    <section className="panel raw-panel">
+    <section className="panel raw-panel conversation-raw-panel">
       <div className="panel-head">
         <div>
-          <p className="panel-kicker">Schema</p>
+          <p className="panel-kicker">QA JSON</p>
           <h2>原始 JSON 预览</h2>
         </div>
       </div>
-      <div className="schema-list">
-        <div>
-          <span>Top-level fields</span>
-          <strong>{Object.keys(sample.raw).join(", ")}</strong>
-        </div>
-        <div>
-          <span>Sessions</span>
-          <strong>{sample.sessionCount}</strong>
-        </div>
-        <div>
-          <span>Observations</span>
-          <strong>{sample.observationCount}</strong>
-        </div>
-        <div>
-          <span>Events</span>
-          <strong>{sample.eventCount}</strong>
-        </div>
+      <div className="raw-pre-wrap conversation-raw-wrap">
+        <pre>{preview}...</pre>
       </div>
-      <details className="raw-details">
-        <summary>展开原始片段</summary>
-        <div className="raw-pre-wrap">
-          <pre>{preview}...</pre>
-        </div>
-      </details>
     </section>
   );
 }
@@ -920,7 +899,7 @@ export default function App() {
           errorByKey={translationErrorByKey}
           onTranslateQa={translateItem}
         />
-        <RawPreview sample={selectedSample} />
+        <QARawPanel rows={filteredQa} />
       </section>
     </main>
   );
