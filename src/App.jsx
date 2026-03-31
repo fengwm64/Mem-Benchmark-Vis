@@ -661,20 +661,13 @@ export default function App() {
     setActiveSession(dataset.samples[selectedIndex].sessions[0]?.number || 1);
   }, [dataset, selectedIndex]);
 
-  if (status === "loading") {
-    return <main className="loading-state">Loading {activeBenchmark.name}...</main>;
-  }
-
-  if (status === "error" || !dataset) {
-    return <main className="loading-state">Failed to load {activeBenchmark.datasetPath}.</main>;
-  }
-
-  const selectedSample = dataset.samples[selectedIndex];
+  const selectedSample = dataset?.samples?.[selectedIndex] || null;
   const selectedSession =
-    selectedSample.sessions.find((session) => session.number === activeSession) ||
-    selectedSample.sessions[0];
+    selectedSample?.sessions?.find((session) => session.number === activeSession) ||
+    selectedSample?.sessions?.[0] ||
+    null;
 
-  const filteredQa = selectedSample.qa.filter((qa) => {
+  const filteredQa = (selectedSample?.qa || []).filter((qa) => {
     const matchCategory = qaCategory === "all" || String(qa.category) === qaCategory;
     const searchText = `${qa.question} ${String(qa.answer)} ${qa.evidence.join(" ")}`.toLowerCase();
     const matchSearch =
@@ -683,6 +676,10 @@ export default function App() {
   });
 
   async function translateVisibleContent() {
+    if (!selectedSession || !selectedSample) {
+      return;
+    }
+
     if (!translationRuntimeConfig.hasApiKey) {
       setTranslateState({
         status: "error",
@@ -785,6 +782,7 @@ export default function App() {
 
     translateVisibleContent();
   }, [
+    dataset,
     activeBenchmarkId,
     selectedIndex,
     activeSession,
@@ -796,6 +794,14 @@ export default function App() {
     translationRuntimeConfig.model,
     translationRuntimeConfig.hasApiKey
   ]);
+
+  if (status === "loading") {
+    return <main className="loading-state">Loading {activeBenchmark.name}...</main>;
+  }
+
+  if (status === "error" || !dataset || !selectedSample || !selectedSession) {
+    return <main className="loading-state">Failed to load {activeBenchmark.datasetPath}.</main>;
+  }
 
   const maxTurns = Math.max(...dataset.samples.map((sample) => sample.turnCount), 1);
   const maxQa = Math.max(...dataset.samples.map((sample) => sample.qa.length), 1);
