@@ -46,11 +46,12 @@ select {
   padding: 32px 0 48px;
 }
 
-.hero {
+.hero,
+.top-layout {
   display: grid;
   grid-template-columns: 1.1fr 1fr;
   gap: 20px;
-  align-items: start;
+  align-items: stretch;
   margin-bottom: 20px;
 }
 
@@ -82,6 +83,55 @@ select {
   max-width: 10ch;
 }
 
+.top-overview,
+.top-benchmark-panel {
+  height: 100%;
+}
+
+.top-overview {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: 18px;
+  background:
+    radial-gradient(circle at top left, rgba(212, 157, 65, 0.15), transparent 34%),
+    linear-gradient(135deg, rgba(255, 249, 238, 0.92), rgba(248, 239, 224, 0.82));
+}
+
+.hero-copy-embedded {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.top-benchmark-panel {
+  display: flex;
+}
+
+.top-benchmark-grid {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.9fr) minmax(0, 1.1fr);
+  gap: 16px;
+  width: 100%;
+}
+
+.top-benchmark-block {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  min-width: 0;
+}
+
+.benchmark-strip-compact {
+  align-content: start;
+  grid-template-columns: 1fr;
+}
+
+.benchmark-strip-compact .benchmark-card {
+  min-height: 0;
+  padding: 16px;
+}
+
 .eyebrow,
 .panel-kicker,
 .sample-button-kicker,
@@ -110,6 +160,10 @@ select {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
+}
+
+.hero-stats {
+  align-content: start;
 }
 
 .stat-card {
@@ -602,6 +656,30 @@ select {
   overflow: auto;
 }
 
+.conversation-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(280px, 0.9fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.conversation-raw {
+  min-width: 0;
+  padding: 18px;
+  border-radius: 20px;
+  background: rgba(255, 251, 247, 0.88);
+  border: 1px solid rgba(47, 37, 22, 0.1);
+}
+
+.conversation-raw h3 {
+  margin: 0 0 12px;
+  font-size: 1.05rem;
+}
+
+.conversation-raw-wrap {
+  max-height: 1100px;
+}
+
 .message-card,
 .qa-card {
   padding: 18px;
@@ -711,7 +789,13 @@ select {
 
 @media (max-width: 1180px) {
   .hero,
-  .dashboard-grid {
+  .top-layout,
+  .dashboard-grid,
+  .conversation-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .top-benchmark-grid {
     grid-template-columns: 1fr;
   }
 
