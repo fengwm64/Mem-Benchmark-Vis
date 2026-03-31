@@ -11,7 +11,14 @@
   ],
   "vars": {
     "BASE_URL": "https://api.longcat.chat/openai",
-    "MODEL": "LongCat-Flash-Lite"
+    "MODEL": "LongCat-Flash-Lite",
+    "ALLOWED_ORIGINS": "https://mem.102465.xyz,http://localhost:5173,http://127.0.0.1:5173,http://localhost:8787,http://127.0.0.1:8787",
+    "TRANSLATE_RATE_LIMIT": "12",
+    "TRANSLATE_RATE_WINDOW_SEC": "60",
+    "TRANSLATE_MAX_TEXTS": "20",
+    "TRANSLATE_MAX_CHARS_PER_TEXT": "1200",
+    "TRANSLATE_MAX_TOTAL_CHARS": "6000",
+    "TRANSLATE_MAX_BODY_BYTES": "20000"
   },
   "assets": {
     "directory": "./dist",
