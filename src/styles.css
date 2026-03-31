@@ -139,6 +139,7 @@ select {
   border-radius: 28px;
   background: var(--card);
   box-shadow: var(--shadow);
+  min-width: 0;
 }
 
 .sample-strip-panel {
@@ -372,6 +373,79 @@ select {
   font-size: 1.2rem;
 }
 
+.translator-form {
+  display: grid;
+  gap: 12px;
+}
+
+.translator-form-readonly {
+  margin-top: 16px;
+}
+
+.translator-form label,
+.toggle-row {
+  display: grid;
+  gap: 8px;
+}
+
+.translator-form span,
+.toggle-row span,
+.translator-note,
+.translator-meta,
+.translated-block span {
+  color: var(--muted);
+}
+
+.toggle-row {
+  grid-template-columns: auto 1fr;
+  align-items: start;
+  margin-top: 16px;
+}
+
+.toggle-row input {
+  margin-top: 4px;
+}
+
+.translator-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.action-button {
+  min-height: 42px;
+  padding: 0 14px;
+  border: 1px solid rgba(42, 107, 114, 0.2);
+  border-radius: 14px;
+  background: rgba(42, 107, 114, 0.9);
+  color: #fff8ef;
+  cursor: pointer;
+}
+
+.action-button.secondary {
+  background: rgba(255, 250, 244, 0.92);
+  color: var(--ink);
+  border-color: rgba(47, 37, 22, 0.12);
+}
+
+.translator-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.translator-note,
+.translator-error {
+  margin: 12px 0 0;
+  line-height: 1.6;
+}
+
+.translator-error {
+  color: #9d2f1f;
+}
+
 .bar-list {
   display: grid;
   gap: 14px;
@@ -429,6 +503,27 @@ select {
 .qa-answer {
   margin: 12px 0 0;
   line-height: 1.6;
+}
+
+.translated-block {
+  margin: 12px 0 0;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(42, 107, 114, 0.08);
+  border: 1px solid rgba(42, 107, 114, 0.12);
+  line-height: 1.6;
+}
+
+.translated-block.inline {
+  margin-top: 10px;
+}
+
+.translated-block span {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.86rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
 .heatmap-grid {
@@ -536,6 +631,15 @@ select {
   background: #201b16;
   color: #f9f0de;
   font-size: 0.84rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.raw-panel,
+.raw-details,
+.raw-pre-wrap {
+  min-width: 0;
 }
 
 .loading-state {

@@ -9,6 +9,10 @@
       "custom_domain": true
     }
   ],
+  "vars": {
+    "BASE_URL": "https://api.longcat.chat/openai",
+    "MODEL": "LongCat-Flash-Lite"
+  },
   "assets": {
     "directory": "./dist",
     "binding": "ASSETS"

@@ -1,5 +1,17 @@
-import { startTransition, useDeferredValue, useEffect, useState } from "react";
+import {
+  startTransition,
+  useDeferredValue,
+  useEffect,
+  useRef,
+  useState
+} from "react";
 import { BENCHMARKS, getBenchmarkById } from "./benchmarks.js";
+import {
+  buildCacheKey,
+  chunkTexts,
+  fetchTranslationRuntimeConfig,
+  translateTexts
+} from "./lib/translator.js";
 
 const CATEGORY_META = {
   1: { label: "Category 1", tone: "c1" },
@@ -9,8 +21,48 @@ const CATEGORY_META = {
   5: { label: "Category 5", tone: "c5" }
 };
 
+const TRANSLATION_STORAGE_KEY = "mem-benchmark-vis.translation-preferences";
+const DEFAULT_TRANSLATION_PREFERENCES = {
+  targetLanguage: "简体中文",
+  autoTranslate: false
+};
+
 function formatNumber(value) {
   return new Intl.NumberFormat("zh-CN").format(value);
+}
+
+function loadTranslationPreferences() {
+  if (typeof window === "undefined") {
+    return DEFAULT_TRANSLATION_PREFERENCES;
+  }
+
+  try {
+    const saved = window.localStorage.getItem(TRANSLATION_STORAGE_KEY);
+    if (!saved) {
+      return DEFAULT_TRANSLATION_PREFERENCES;
+    }
+
+    return {
+      ...DEFAULT_TRANSLATION_PREFERENCES,
+      ...JSON.parse(saved)
+    };
+  } catch {
+    return DEFAULT_TRANSLATION_PREFERENCES;
+  }
+}
+
+function collectSessionTexts(session) {
+  return session.turns.flatMap((turn) =>
+    [turn.text, turn.query, turn.blip_caption].filter(Boolean).map((item) => String(item))
+  );
+}
+
+function collectQaTexts(rows) {
+  return rows.flatMap((qa) => [qa.question, String(qa.answer)].filter(Boolean));
+}
+
+function getTranslatedText(cache, targetLanguage, text) {
+  return cache[buildCacheKey(targetLanguage, text)] || "";
 }
 
 function StatCard({ label, value, note }) {
@@ -27,7 +79,9 @@ function BenchmarkCard({ benchmark, active, onClick }) {
   return (
     <button
       type="button"
-      className={`benchmark-card ${active ? "is-active" : ""} ${benchmark.status !== "ready" ? "is-disabled" : ""}`}
+      className={`benchmark-card ${active ? "is-active" : ""} ${
+        benchmark.status !== "ready" ? "is-disabled" : ""
+      }`}
       onClick={onClick}
       disabled={benchmark.status !== "ready"}
     >
@@ -74,6 +128,75 @@ function SampleButton({ sample, active, onClick, maxTurns, maxQa }) {
         <strong>{sample.qa.length}</strong>
       </div>
     </button>
+  );
+}
+
+function TranslationPanel({
+  preferences,
+  runtimeConfig,
+  onPreferenceChange,
+  onTranslate,
+  onClearCache,
+  translateState,
+  translatedEntryCount
+}) {
+  return (
+    <section className="panel">
+      <div className="panel-head panel-head-stack">
+        <div>
+          <p className="panel-kicker">Translation</p>
+          <h2>实时翻译</h2>
+        </div>
+      </div>
+      <div className="schema-list">
+        <div>
+          <span>Base URL</span>
+          <strong>{runtimeConfig.baseUrl || "未配置"}</strong>
+        </div>
+        <div>
+          <span>Model</span>
+          <strong>{runtimeConfig.model || "未配置"}</strong>
+        </div>
+        <div>
+          <span>API Key Secret</span>
+          <strong>{runtimeConfig.hasApiKey ? "已配置" : "未配置"}</strong>
+        </div>
+      </div>
+      <div className="translator-form translator-form-readonly">
+        <label>
+          <span>Target Language</span>
+          <input
+            value={preferences.targetLanguage}
+            onChange={(event) => onPreferenceChange("targetLanguage", event.target.value)}
+            placeholder="简体中文"
+          />
+        </label>
+      </div>
+      <label className="toggle-row">
+        <input
+          type="checkbox"
+          checked={preferences.autoTranslate}
+          onChange={(event) => onPreferenceChange("autoTranslate", event.target.checked)}
+        />
+        <span>自动翻译当前选中的会话与当前过滤后的 QA</span>
+      </label>
+      <div className="translator-actions">
+        <button type="button" className="action-button" onClick={onTranslate}>
+          立即翻译当前内容
+        </button>
+        <button type="button" className="action-button secondary" onClick={onClearCache}>
+          清空翻译缓存
+        </button>
+      </div>
+      <div className="translator-meta">
+        <span>缓存条目：{translatedEntryCount}</span>
+        <span>状态：{translateState.statusLabel}</span>
+      </div>
+      <p className="translator-note">
+        `BASE_URL` 和 `MODEL` 来自 Worker `vars`，`API_KEY` 来自 Wrangler secret。浏览器不会直接接触密钥。
+      </p>
+      {translateState.error ? <p className="translator-error">{translateState.error}</p> : null}
+    </section>
   );
 }
 
@@ -201,7 +324,7 @@ function SessionTimeline({ sample, activeSession, onSelectSession }) {
   );
 }
 
-function ConversationViewer({ session }) {
+function ConversationViewer({ session, translationCache, targetLanguage }) {
   return (
     <section className="panel span-two">
       <div className="panel-head">
@@ -214,31 +337,65 @@ function ConversationViewer({ session }) {
         </div>
       </div>
       <div className="conversation-list">
-        {session.turns.map((turn) => (
-          <article
-            key={turn.dia_id}
-            className={`message-card speaker-${turn.speaker?.toLowerCase()}`}
-          >
-            <div className="message-head">
-              <strong>{turn.speaker}</strong>
-              <span>{turn.dia_id}</span>
-            </div>
-            <p>{turn.text}</p>
-            {(turn.query || turn.blip_caption || turn.img_url?.length) && (
-              <div className="media-note">
-                {turn.query && <span>query: {turn.query}</span>}
-                {turn.blip_caption && <span>caption: {turn.blip_caption}</span>}
-                {turn.img_url?.length ? <span>{turn.img_url.length} image link</span> : null}
+        {session.turns.map((turn) => {
+          const translatedText = getTranslatedText(translationCache, targetLanguage, turn.text);
+          const translatedQuery = turn.query
+            ? getTranslatedText(translationCache, targetLanguage, turn.query)
+            : "";
+          const translatedCaption = turn.blip_caption
+            ? getTranslatedText(translationCache, targetLanguage, turn.blip_caption)
+            : "";
+
+          return (
+            <article
+              key={turn.dia_id}
+              className={`message-card speaker-${turn.speaker?.toLowerCase()}`}
+            >
+              <div className="message-head">
+                <strong>{turn.speaker}</strong>
+                <span>{turn.dia_id}</span>
               </div>
-            )}
-          </article>
-        ))}
+              <p>{turn.text}</p>
+              {translatedText ? (
+                <p className="translated-block">
+                  <span>{targetLanguage}</span>
+                  {translatedText}
+                </p>
+              ) : null}
+              {(turn.query || turn.blip_caption || turn.img_url?.length) && (
+                <div className="media-note">
+                  {turn.query ? (
+                    <span>
+                      query: {turn.query}
+                      {translatedQuery ? ` | ${targetLanguage}: ${translatedQuery}` : ""}
+                    </span>
+                  ) : null}
+                  {turn.blip_caption ? (
+                    <span>
+                      caption: {turn.blip_caption}
+                      {translatedCaption ? ` | ${targetLanguage}: ${translatedCaption}` : ""}
+                    </span>
+                  ) : null}
+                  {turn.img_url?.length ? <span>{turn.img_url.length} image link</span> : null}
+                </div>
+              )}
+            </article>
+          );
+        })}
       </div>
     </section>
   );
 }
 
-function QAExplorer({ rows, qaCategory, setQaCategory, qaSearch, setQaSearch }) {
+function QAExplorer({
+  rows,
+  qaCategory,
+  setQaCategory,
+  qaSearch,
+  setQaSearch,
+  translationCache,
+  targetLanguage
+}) {
   return (
     <section className="panel span-two">
       <div className="panel-head panel-head-stack">
@@ -269,29 +426,54 @@ function QAExplorer({ rows, qaCategory, setQaCategory, qaSearch, setQaSearch }) 
         </div>
       </div>
       <div className="qa-list">
-        {rows.map((qa, index) => (
-          <article key={`${qa.question}-${index}`} className="qa-card">
-            <div className="qa-head">
-              <span className={`pill ${CATEGORY_META[qa.category]?.tone || "c1"}`}>
-                {CATEGORY_META[qa.category]?.label || `Category ${qa.category}`}
-              </span>
-              <span>{qa.evidence.length} evidence refs</span>
-            </div>
-            <h3>{qa.question}</h3>
-            <p className="qa-answer">{String(qa.answer)}</p>
-            <div className="evidence-row">
-              {qa.evidence.length ? (
-                qa.evidence.map((evidence) => (
-                  <span key={evidence} className="evidence-pill">
-                    {evidence}
-                  </span>
-                ))
-              ) : (
-                <span className="evidence-pill is-empty">No evidence</span>
-              )}
-            </div>
-          </article>
-        ))}
+        {rows.map((qa, index) => {
+          const translatedQuestion = getTranslatedText(
+            translationCache,
+            targetLanguage,
+            qa.question
+          );
+          const translatedAnswer = getTranslatedText(
+            translationCache,
+            targetLanguage,
+            String(qa.answer)
+          );
+
+          return (
+            <article key={`${qa.question}-${index}`} className="qa-card">
+              <div className="qa-head">
+                <span className={`pill ${CATEGORY_META[qa.category]?.tone || "c1"}`}>
+                  {CATEGORY_META[qa.category]?.label || `Category ${qa.category}`}
+                </span>
+                <span>{qa.evidence.length} evidence refs</span>
+              </div>
+              <h3>{qa.question}</h3>
+              {translatedQuestion ? (
+                <p className="translated-block inline">
+                  <span>{targetLanguage}</span>
+                  {translatedQuestion}
+                </p>
+              ) : null}
+              <p className="qa-answer">{String(qa.answer)}</p>
+              {translatedAnswer ? (
+                <p className="translated-block inline">
+                  <span>{targetLanguage}</span>
+                  {translatedAnswer}
+                </p>
+              ) : null}
+              <div className="evidence-row">
+                {qa.evidence.length ? (
+                  qa.evidence.map((evidence) => (
+                    <span key={evidence} className="evidence-pill">
+                      {evidence}
+                    </span>
+                  ))
+                ) : (
+                  <span className="evidence-pill is-empty">No evidence</span>
+                )}
+              </div>
+            </article>
+          );
+        })}
       </div>
     </section>
   );
@@ -301,7 +483,7 @@ function RawPreview({ sample }) {
   const preview = JSON.stringify(sample.raw, null, 2).slice(0, 5000);
 
   return (
-    <section className="panel">
+    <section className="panel raw-panel">
       <div className="panel-head">
         <div>
           <p className="panel-kicker">Schema</p>
@@ -328,7 +510,9 @@ function RawPreview({ sample }) {
       </div>
       <details className="raw-details">
         <summary>展开原始片段</summary>
-        <pre>{preview}...</pre>
+        <div className="raw-pre-wrap">
+          <pre>{preview}...</pre>
+        </div>
       </details>
     </section>
   );
@@ -373,9 +557,68 @@ export default function App() {
   const [activeSession, setActiveSession] = useState(1);
   const [qaCategory, setQaCategory] = useState("all");
   const [qaSearch, setQaSearch] = useState("");
+  const [translationPreferences, setTranslationPreferences] = useState(
+    loadTranslationPreferences
+  );
+  const [translationRuntimeConfig, setTranslationRuntimeConfig] = useState({
+    baseUrl: "",
+    model: "",
+    hasApiKey: false
+  });
+  const [translationCache, setTranslationCache] = useState({});
+  const [translateState, setTranslateState] = useState({
+    status: "idle",
+    statusLabel: "未翻译",
+    error: ""
+  });
+  const translationCacheRef = useRef({});
+  const translationRunId = useRef(0);
   const deferredSearch = useDeferredValue(qaSearch);
 
   const activeBenchmark = getBenchmarkById(activeBenchmarkId);
+
+  useEffect(() => {
+    translationCacheRef.current = translationCache;
+  }, [translationCache]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    window.localStorage.setItem(
+      TRANSLATION_STORAGE_KEY,
+      JSON.stringify(translationPreferences)
+    );
+  }, [translationPreferences]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadRuntimeConfig() {
+      try {
+        const config = await fetchTranslationRuntimeConfig();
+        if (!cancelled) {
+          setTranslationRuntimeConfig(config);
+        }
+      } catch (error) {
+        console.error(error);
+        if (!cancelled) {
+          setTranslateState({
+            status: "error",
+            statusLabel: "翻译配置读取失败",
+            error: error.message || "Failed to load translation config."
+          });
+        }
+      }
+    }
+
+    loadRuntimeConfig();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -434,9 +677,125 @@ export default function App() {
   const filteredQa = selectedSample.qa.filter((qa) => {
     const matchCategory = qaCategory === "all" || String(qa.category) === qaCategory;
     const searchText = `${qa.question} ${String(qa.answer)} ${qa.evidence.join(" ")}`.toLowerCase();
-    const matchSearch = !deferredSearch || searchText.includes(deferredSearch.toLowerCase());
+    const matchSearch =
+      !deferredSearch || searchText.includes(deferredSearch.toLowerCase());
     return matchCategory && matchSearch;
   });
+
+  async function translateVisibleContent() {
+    if (!translationRuntimeConfig.hasApiKey) {
+      setTranslateState({
+        status: "error",
+        statusLabel: "缺少 API_KEY secret",
+        error: "请先在 Cloudflare Wrangler 中配置 API_KEY secret。"
+      });
+      return;
+    }
+
+    if (!translationRuntimeConfig.baseUrl || !translationRuntimeConfig.model) {
+      setTranslateState({
+        status: "error",
+        statusLabel: "缺少翻译配置",
+        error: "请先在 wrangler.jsonc 中配置 BASE_URL 和 MODEL。"
+      });
+      return;
+    }
+
+    const runId = Date.now();
+    translationRunId.current = runId;
+    setTranslateState({
+      status: "running",
+      statusLabel: "翻译中",
+      error: ""
+    });
+
+    try {
+      const texts = [
+        ...collectSessionTexts(selectedSession),
+        ...collectQaTexts(filteredQa)
+      ].filter(Boolean);
+      const uniqueTexts = [...new Set(texts)];
+      const missingTexts = uniqueTexts.filter(
+        (text) =>
+          !translationCacheRef.current[
+            buildCacheKey(translationPreferences.targetLanguage, text)
+          ]
+      );
+
+      if (!missingTexts.length) {
+        setTranslateState({
+          status: "ready",
+          statusLabel: "已命中缓存",
+          error: ""
+        });
+        return;
+      }
+
+      const nextEntries = {};
+      const chunks = chunkTexts(missingTexts, 20);
+
+      for (const chunk of chunks) {
+        const translations = await translateTexts({
+          targetLanguage: translationPreferences.targetLanguage,
+          texts: chunk
+        });
+
+        chunk.forEach((text, index) => {
+          nextEntries[buildCacheKey(translationPreferences.targetLanguage, text)] =
+            translations[index];
+        });
+      }
+
+      if (translationRunId.current !== runId) {
+        return;
+      }
+
+      setTranslationCache((previous) => {
+        const merged = {
+          ...previous,
+          ...nextEntries
+        };
+        translationCacheRef.current = merged;
+        return merged;
+      });
+
+      setTranslateState({
+        status: "ready",
+        statusLabel: `已翻译 ${missingTexts.length} 条`,
+        error: ""
+      });
+    } catch (error) {
+      console.error(error);
+      if (translationRunId.current !== runId) {
+        return;
+      }
+
+      setTranslateState({
+        status: "error",
+        statusLabel: "翻译失败",
+        error: error.message || "Translation failed."
+      });
+    }
+  }
+
+  useEffect(() => {
+    if (!translationPreferences.autoTranslate) {
+      return;
+    }
+
+    translateVisibleContent();
+  }, [
+    activeBenchmarkId,
+    selectedIndex,
+    activeSession,
+    qaCategory,
+    deferredSearch,
+    translationPreferences.autoTranslate,
+    translationPreferences.targetLanguage,
+    translationRuntimeConfig.baseUrl,
+    translationRuntimeConfig.model,
+    translationRuntimeConfig.hasApiKey
+  ]);
 
   const maxTurns = Math.max(...dataset.samples.map((sample) => sample.turnCount), 1);
   const maxQa = Math.max(...dataset.samples.map((sample) => sample.qa.length), 1);
@@ -448,17 +807,41 @@ export default function App() {
           <p className="eyebrow">Cloudflare + React Benchmark Studio</p>
           <h1>多 Benchmark 数据集可视化平台</h1>
           <p className="hero-text">
-            这个站点现在已经不是单独服务 LoCoMo 的页面，而是一个可扩展的 benchmark
-            可视化工作台。当前接入的数据源只有 {activeBenchmark.name}，但主页面、注册表和数据适配层都已经改成面向多 benchmark 的结构。
+            翻译现在改成 Worker 代理模式。`BASE_URL` 和 `MODEL` 来自 Cloudflare 环境变量，
+            `API_KEY` 来自 Worker secret，前端只负责请求本站 `/api/translate`。
           </p>
         </div>
         <div className="hero-stats">
-          <StatCard label="已注册 Benchmark" value={formatNumber(BENCHMARKS.length)} note="包含已接入与预留接入位" />
-          <StatCard label="当前数据集" value={activeBenchmark.name} note={activeBenchmark.tagline} />
-          <StatCard label="样本数" value={formatNumber(dataset.stats.sampleCount)} note="当前 benchmark 已加载的 records" />
-          <StatCard label="会话总数" value={formatNumber(dataset.stats.totalSessions)} note="结构化 session 汇总" />
-          <StatCard label="QA 总数" value={formatNumber(dataset.stats.totalQa)} note="question-answer pairs" />
-          <StatCard label="证据引用" value={formatNumber(dataset.stats.totalEvidence)} note="evidence reference 出现次数" />
+          <StatCard
+            label="已注册 Benchmark"
+            value={formatNumber(BENCHMARKS.length)}
+            note="包含已接入与预留接入位"
+          />
+          <StatCard
+            label="当前数据集"
+            value={activeBenchmark.name}
+            note={activeBenchmark.tagline}
+          />
+          <StatCard
+            label="样本数"
+            value={formatNumber(dataset.stats.sampleCount)}
+            note="当前 benchmark 已加载的 records"
+          />
+          <StatCard
+            label="会话总数"
+            value={formatNumber(dataset.stats.totalSessions)}
+            note="结构化 session 汇总"
+          />
+          <StatCard
+            label="QA 总数"
+            value={formatNumber(dataset.stats.totalQa)}
+            note="question-answer pairs"
+          />
+          <StatCard
+            label="证据引用"
+            value={formatNumber(dataset.stats.totalEvidence)}
+            note="evidence reference 出现次数"
+          />
         </div>
       </header>
 
@@ -500,10 +883,26 @@ export default function App() {
           <div className="sample-summary">
             <p className="benchmark-summary-copy">{activeBenchmark.description}</p>
             <div className="summary-cards">
-              <StatCard label="Samples" value={formatNumber(dataset.stats.sampleCount)} note="当前 benchmark 中的 sample 数" />
-              <StatCard label="Turns" value={formatNumber(dataset.stats.totalTurns)} note="所有样本中的总消息轮次" />
-              <StatCard label="QA Pairs" value={formatNumber(dataset.stats.totalQa)} note="问答监督条目数" />
-              <StatCard label="Media Turns" value={formatNumber(dataset.stats.totalMedia)} note="包含图像元信息的 turns" />
+              <StatCard
+                label="Samples"
+                value={formatNumber(dataset.stats.sampleCount)}
+                note="当前 benchmark 中的 sample 数"
+              />
+              <StatCard
+                label="Turns"
+                value={formatNumber(dataset.stats.totalTurns)}
+                note="所有样本中的总消息轮次"
+              />
+              <StatCard
+                label="QA Pairs"
+                value={formatNumber(dataset.stats.totalQa)}
+                note="问答监督条目数"
+              />
+              <StatCard
+                label="Media Turns"
+                value={formatNumber(dataset.stats.totalMedia)}
+                note="包含图像元信息的 turns"
+              />
             </div>
             <div className="feature-grid">
               <article className="feature-card">
@@ -526,7 +925,28 @@ export default function App() {
           </div>
         </section>
 
-        <PlatformReadiness activeBenchmark={activeBenchmark} />
+        <TranslationPanel
+          preferences={translationPreferences}
+          runtimeConfig={translationRuntimeConfig}
+          onPreferenceChange={(field, value) =>
+            setTranslationPreferences((previous) => ({
+              ...previous,
+              [field]: value
+            }))
+          }
+          onTranslate={translateVisibleContent}
+          onClearCache={() => {
+            translationCacheRef.current = {};
+            setTranslationCache({});
+            setTranslateState({
+              status: "idle",
+              statusLabel: "缓存已清空",
+              error: ""
+            });
+          }}
+          translateState={translateState}
+          translatedEntryCount={Object.keys(translationCache).length}
+        />
 
         <section className="panel sample-strip-panel span-two">
           <div className="panel-head">
@@ -555,6 +975,7 @@ export default function App() {
           </div>
         </section>
 
+        <PlatformReadiness activeBenchmark={activeBenchmark} />
         <CategoryBars sample={selectedSample} />
         <SessionTimeline
           sample={selectedSample}
@@ -562,13 +983,19 @@ export default function App() {
           onSelectSession={setActiveSession}
         />
         <EvidenceHeatmap sample={selectedSample} />
-        <ConversationViewer session={selectedSession} />
+        <ConversationViewer
+          session={selectedSession}
+          translationCache={translationCache}
+          targetLanguage={translationPreferences.targetLanguage}
+        />
         <QAExplorer
           rows={filteredQa}
           qaCategory={qaCategory}
           setQaCategory={setQaCategory}
           qaSearch={qaSearch}
           setQaSearch={setQaSearch}
+          translationCache={translationCache}
+          targetLanguage={translationPreferences.targetLanguage}
         />
         <RawPreview sample={selectedSample} />
       </section>
