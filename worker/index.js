@@ -143,7 +143,6 @@ function validateContentLength(request, env) {
 
 function validateTranslatePayload(body, env) {
   const maxTexts = readInt(env.TRANSLATE_MAX_TEXTS, 20);
-  const maxCharsPerText = readInt(env.TRANSLATE_MAX_CHARS_PER_TEXT, 1200);
   const maxTotalChars = readInt(env.TRANSLATE_MAX_TOTAL_CHARS, 6000);
   const texts = Array.isArray(body?.texts) ? body.texts.map((item) => String(item)) : [];
   const targetLanguage = String(body?.targetLanguage || "简体中文").trim().slice(0, 64);
@@ -168,15 +167,6 @@ function validateTranslatePayload(body, env) {
     if (!text.trim()) {
       return {
         error: json({ error: "Text entries cannot be empty." }, { status: 400 })
-      };
-    }
-
-    if (text.length > maxCharsPerText) {
-      return {
-        error: json(
-          { error: `A text entry exceeds the max length of ${maxCharsPerText}.` },
-          { status: 400 }
-        )
       };
     }
 
@@ -207,7 +197,6 @@ async function handleTranslationConfig(env) {
       rateLimit: readInt(env.TRANSLATE_RATE_LIMIT, 12),
       rateWindowSec: readInt(env.TRANSLATE_RATE_WINDOW_SEC, 60),
       maxTexts: readInt(env.TRANSLATE_MAX_TEXTS, 20),
-      maxCharsPerText: readInt(env.TRANSLATE_MAX_CHARS_PER_TEXT, 1200),
       maxTotalChars: readInt(env.TRANSLATE_MAX_TOTAL_CHARS, 6000)
     }
   });

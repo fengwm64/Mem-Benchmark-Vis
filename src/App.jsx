@@ -698,128 +698,134 @@ export default function App() {
 
   return (
     <main className="app-shell">
-      <header className="hero">
-        <div className="hero-copy">
-          <p className="eyebrow">Cloudflare + React Benchmark Studio</p>
-          <h1>多 Benchmark 数据集可视化平台</h1>
-          <p className="hero-text">
-            时间线、对话详情和 QA 明细都支持按条点击翻译，只请求你真正想看的那一小段内容。
-          </p>
-        </div>
-        <div className="hero-stats">
-          <StatCard
-            label="已注册 Benchmark"
-            value={formatNumber(BENCHMARKS.length)}
-            note="包含已接入与预留接入位"
-          />
-          <StatCard
-            label="当前数据集"
-            value={activeBenchmark.name}
-            note={activeBenchmark.tagline}
-          />
-          <StatCard
-            label="样本数"
-            value={formatNumber(dataset.stats.sampleCount)}
-            note="当前 benchmark 已加载的 records"
-          />
-          <StatCard
-            label="会话总数"
-            value={formatNumber(dataset.stats.totalSessions)}
-            note="结构化 session 汇总"
-          />
-          <StatCard
-            label="QA 总数"
-            value={formatNumber(dataset.stats.totalQa)}
-            note="question-answer pairs"
-          />
-          <StatCard
-            label="证据引用"
-            value={formatNumber(dataset.stats.totalEvidence)}
-            note="evidence reference 出现次数"
-          />
-        </div>
-      </header>
-
-      <section className="panel sample-strip-panel">
-        <div className="panel-head">
-          <div>
-            <p className="panel-kicker">Benchmarks</p>
-            <h2>Benchmark 切换</h2>
+      <section className="top-layout">
+        <section className="top-overview">
+          <div className="hero-copy">
+            <p className="eyebrow">Cloudflare + React Benchmark Studio</p>
+            <h1>多 Benchmark 数据集可视化平台</h1>
+            <p className="hero-text">
+              时间线、对话详情和 QA 明细都支持按条点击翻译，只请求你真正想看的那一小段内容。
+            </p>
           </div>
-        </div>
-        <div className="benchmark-strip">
-          {BENCHMARKS.map((benchmark) => (
-            <BenchmarkCard
-              key={benchmark.id}
-              benchmark={benchmark}
-              active={benchmark.id === activeBenchmarkId}
-              onClick={() => {
-                if (benchmark.status !== "ready") {
-                  return;
-                }
-                startTransition(() => {
-                  setActiveBenchmarkId(benchmark.id);
-                });
-              }}
+          <div className="hero-stats">
+            <StatCard
+              label="已注册 Benchmark"
+              value={formatNumber(BENCHMARKS.length)}
+              note="包含已接入与预留接入位"
             />
-          ))}
-        </div>
-      </section>
-
-      <section className="dashboard-grid">
-        <section className="panel span-two">
-          <div className="panel-head">
-            <div>
-              <p className="panel-kicker">Selected Benchmark</p>
-              <h2>{activeBenchmark.name}</h2>
-            </div>
-            <div className="session-meta">{activeBenchmark.domain}</div>
-          </div>
-          <div className="sample-summary">
-            <p className="benchmark-summary-copy">{activeBenchmark.description}</p>
-            <div className="summary-cards">
-              <StatCard
-                label="Samples"
-                value={formatNumber(dataset.stats.sampleCount)}
-                note="当前 benchmark 中的 sample 数"
-              />
-              <StatCard
-                label="Turns"
-                value={formatNumber(dataset.stats.totalTurns)}
-                note="所有样本中的总消息轮次"
-              />
-              <StatCard
-                label="QA Pairs"
-                value={formatNumber(dataset.stats.totalQa)}
-                note="问答监督条目数"
-              />
-              <StatCard
-                label="Media Turns"
-                value={formatNumber(dataset.stats.totalMedia)}
-                note="包含图像元信息的 turns"
-              />
-            </div>
-            <div className="feature-grid">
-              <article className="feature-card">
-                <span>Visualization Mode</span>
-                <strong>{activeBenchmark.viewType}</strong>
-              </article>
-              <article className="feature-card">
-                <span>Dataset Path</span>
-                <strong>{activeBenchmark.datasetPath}</strong>
-              </article>
-              <article className="feature-card">
-                <span>Adapter</span>
-                <strong>{dataset.adapterName}</strong>
-              </article>
-              <article className="feature-card">
-                <span>Data Schema</span>
-                <strong>{dataset.schemaLabel}</strong>
-              </article>
-            </div>
+            <StatCard
+              label="当前数据集"
+              value={activeBenchmark.name}
+              note={activeBenchmark.tagline}
+            />
+            <StatCard
+              label="样本数"
+              value={formatNumber(dataset.stats.sampleCount)}
+              note="当前 benchmark 已加载的 records"
+            />
+            <StatCard
+              label="会话总数"
+              value={formatNumber(dataset.stats.totalSessions)}
+              note="结构化 session 汇总"
+            />
+            <StatCard
+              label="QA 总数"
+              value={formatNumber(dataset.stats.totalQa)}
+              note="question-answer pairs"
+            />
+            <StatCard
+              label="证据引用"
+              value={formatNumber(dataset.stats.totalEvidence)}
+              note="evidence reference 出现次数"
+            />
           </div>
         </section>
 
+        <section className="panel top-benchmark-panel">
+          <div className="top-benchmark-grid">
+            <section className="top-benchmark-block">
+              <div className="panel-head">
+                <div>
+                  <p className="panel-kicker">Benchmarks</p>
+                  <h2>Benchmark 切换</h2>
+                </div>
+              </div>
+              <div className="benchmark-strip benchmark-strip-compact">
+                {BENCHMARKS.map((benchmark) => (
+                  <BenchmarkCard
+                    key={benchmark.id}
+                    benchmark={benchmark}
+                    active={benchmark.id === activeBenchmarkId}
+                    onClick={() => {
+                      if (benchmark.status !== "ready") {
+                        return;
+                      }
+                      startTransition(() => {
+                        setActiveBenchmarkId(benchmark.id);
+                      });
+                    }}
+                  />
+                ))}
+              </div>
+            </section>
+
+            <section className="top-benchmark-block">
+              <div className="panel-head">
+                <div>
+                  <p className="panel-kicker">Selected Benchmark</p>
+                  <h2>{activeBenchmark.name}</h2>
+                </div>
+                <div className="session-meta">{activeBenchmark.domain}</div>
+              </div>
+              <div className="sample-summary">
+                <p className="benchmark-summary-copy">{activeBenchmark.description}</p>
+                <div className="summary-cards">
+                  <StatCard
+                    label="Samples"
+                    value={formatNumber(dataset.stats.sampleCount)}
+                    note="当前 benchmark 中的 sample 数"
+                  />
+                  <StatCard
+                    label="Turns"
+                    value={formatNumber(dataset.stats.totalTurns)}
+                    note="所有样本中的总消息轮次"
+                  />
+                  <StatCard
+                    label="QA Pairs"
+                    value={formatNumber(dataset.stats.totalQa)}
+                    note="问答监督条目数"
+                  />
+                  <StatCard
+                    label="Media Turns"
+                    value={formatNumber(dataset.stats.totalMedia)}
+                    note="包含图像元信息的 turns"
+                  />
+                </div>
+                <div className="feature-grid">
+                  <article className="feature-card">
+                    <span>Visualization Mode</span>
+                    <strong>{activeBenchmark.viewType}</strong>
+                  </article>
+                  <article className="feature-card">
+                    <span>Dataset Path</span>
+                    <strong>{activeBenchmark.datasetPath}</strong>
+                  </article>
+                  <article className="feature-card">
+                    <span>Adapter</span>
+                    <strong>{dataset.adapterName}</strong>
+                  </article>
+                  <article className="feature-card">
+                    <span>Data Schema</span>
+                    <strong>{dataset.schemaLabel}</strong>
+                  </article>
+                </div>
+              </div>
+            </section>
+          </div>
+        </section>
+      </section>
+
+      <section className="dashboard-grid">
         <section className="panel sample-strip-panel span-two">
           <div className="panel-head">
             <div>
