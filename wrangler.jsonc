@@ -1,6 +1,6 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
-  "name": "Mem-Benchmark-Vis",
+  "name": "mem-benchmark-vis",
   "main": "worker/index.js",
   "compatibility_date": "2025-03-01",
   "assets": {
