@@ -1,6 +1,6 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
-  "name": "mem-benchmark-vis",
+  "name": "locomo-visualizer",
   "main": "worker/index.js",
   "compatibility_date": "2025-03-01",
   "assets": {
