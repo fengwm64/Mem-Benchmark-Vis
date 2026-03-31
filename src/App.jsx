@@ -192,7 +192,7 @@ function SessionTimeline({
   onTranslateSession
 }) {
   return (
-    <section className="panel span-two">
+    <section className="panel span-two panel-scroll">
       <div className="panel-head">
         <div>
           <p className="panel-kicker">Timeline</p>
@@ -307,6 +307,87 @@ function ConversationViewer({
     });
   }, [highlightedDiaId, session.number]);
 
+  return (
+    <section className="panel span-two panel-scroll">
+      <div className="panel-head">
+        <div>
+          <p className="panel-kicker">Conversation</p>
+          <h2>Session {session.number} 对话详情</h2>
+        </div>
+        <div className="session-meta">
+          <span>{session.dateTime}</span>
+        </div>
+      </div>
+      <div className="conversation-list">
+        {session.turns.map((turn) => {
+          const translatedText = getTranslatedText(translationCache, targetLanguage, turn.text);
+          const translatedQuery = turn.query
+            ? getTranslatedText(translationCache, targetLanguage, turn.query)
+            : "";
+          const translatedCaption = turn.blip_caption
+            ? getTranslatedText(translationCache, targetLanguage, turn.blip_caption)
+            : "";
+
+          return (
+            <article
+              key={turn.dia_id}
+              data-dia-id={turn.dia_id}
+              className={`message-card speaker-${turn.speaker?.toLowerCase()} ${
+                highlightedDiaId === turn.dia_id ? "is-highlighted" : ""
+              }`}
+            >
+              <div className="message-head">
+                <strong>{turn.speaker}</strong>
+                <div className="message-actions">
+                  <span>{turn.dia_id}</span>
+                  <button
+                    type="button"
+                    className="mini-action-button"
+                    onClick={() =>
+                      onTranslateTurn(turn.dia_id, [turn.text, turn.query, turn.blip_caption])
+                    }
+                    disabled={Boolean(loadingByKey[turn.dia_id])}
+                  >
+                    {loadingByKey[turn.dia_id] ? "翻译中" : "翻译"}
+                  </button>
+                </div>
+              </div>
+              <p>{turn.text}</p>
+              {translatedText ? (
+                <p className="translated-block">
+                  <span>{targetLanguage}</span>
+                  {translatedText}
+                </p>
+              ) : null}
+              {(turn.query || turn.blip_caption || turn.img_url?.length) && (
+                <div className="media-note">
+                  {turn.query ? (
+                    <span>
+                      query: {turn.query}
+                      {translatedQuery ? ` | ${targetLanguage}: ${translatedQuery}` : ""}
+                    </span>
+                  ) : null}
+                  {turn.blip_caption ? (
+                    <span>
+                      caption: {turn.blip_caption}
+                      {translatedCaption ? ` | ${targetLanguage}: ${translatedCaption}` : ""}
+                    </span>
+                  ) : null}
+                  {turn.img_url?.length ? <span>{turn.img_url.length} image link</span> : null}
+                </div>
+              )}
+              {errorByKey[turn.dia_id] ? (
+                <p className="translator-error compact">{errorByKey[turn.dia_id]}</p>
+              ) : null}
+            </article>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function ConversationRawPanel({ session }) {
   const sessionPreview = JSON.stringify(
     {
       session_number: session.number,
@@ -321,90 +402,15 @@ function ConversationViewer({
   ).slice(0, 7000);
 
   return (
-    <section className="panel span-two">
+    <section className="panel raw-panel conversation-raw-panel">
       <div className="panel-head">
         <div>
-          <p className="panel-kicker">Conversation</p>
-          <h2>Session {session.number} 对话详情</h2>
-        </div>
-        <div className="session-meta">
-          <span>{session.dateTime}</span>
+          <p className="panel-kicker">Session JSON</p>
+          <h2>原始 JSON 预览</h2>
         </div>
       </div>
-      <div className="conversation-layout">
-        <div className="conversation-list">
-          {session.turns.map((turn) => {
-            const translatedText = getTranslatedText(translationCache, targetLanguage, turn.text);
-            const translatedQuery = turn.query
-              ? getTranslatedText(translationCache, targetLanguage, turn.query)
-              : "";
-            const translatedCaption = turn.blip_caption
-              ? getTranslatedText(translationCache, targetLanguage, turn.blip_caption)
-              : "";
-
-            return (
-              <article
-                key={turn.dia_id}
-                data-dia-id={turn.dia_id}
-                className={`message-card speaker-${turn.speaker?.toLowerCase()} ${
-                  highlightedDiaId === turn.dia_id ? "is-highlighted" : ""
-                }`}
-              >
-                <div className="message-head">
-                  <strong>{turn.speaker}</strong>
-                  <div className="message-actions">
-                    <span>{turn.dia_id}</span>
-                    <button
-                      type="button"
-                      className="mini-action-button"
-                      onClick={() =>
-                        onTranslateTurn(turn.dia_id, [turn.text, turn.query, turn.blip_caption])
-                      }
-                      disabled={Boolean(loadingByKey[turn.dia_id])}
-                    >
-                      {loadingByKey[turn.dia_id] ? "翻译中" : "翻译"}
-                    </button>
-                  </div>
-                </div>
-                <p>{turn.text}</p>
-                {translatedText ? (
-                  <p className="translated-block">
-                    <span>{targetLanguage}</span>
-                    {translatedText}
-                  </p>
-                ) : null}
-                {(turn.query || turn.blip_caption || turn.img_url?.length) && (
-                  <div className="media-note">
-                    {turn.query ? (
-                      <span>
-                        query: {turn.query}
-                        {translatedQuery ? ` | ${targetLanguage}: ${translatedQuery}` : ""}
-                      </span>
-                    ) : null}
-                    {turn.blip_caption ? (
-                      <span>
-                        caption: {turn.blip_caption}
-                        {translatedCaption ? ` | ${targetLanguage}: ${translatedCaption}` : ""}
-                      </span>
-                    ) : null}
-                    {turn.img_url?.length ? <span>{turn.img_url.length} image link</span> : null}
-                  </div>
-                )}
-                {errorByKey[turn.dia_id] ? (
-                  <p className="translator-error compact">{errorByKey[turn.dia_id]}</p>
-                ) : null}
-              </article>
-            );
-          })}
-        </div>
-
-        <aside className="conversation-raw">
-          <p className="panel-kicker">Session JSON</p>
-          <h3>原始 JSON 预览</h3>
-          <div className="raw-pre-wrap conversation-raw-wrap">
-            <pre>{sessionPreview}...</pre>
-          </div>
-        </aside>
+      <div className="raw-pre-wrap conversation-raw-wrap">
+        <pre>{sessionPreview}...</pre>
       </div>
     </section>
   );
@@ -424,7 +430,7 @@ function QAExplorer({
   onTranslateQa
 }) {
   return (
-    <section className="panel span-two">
+    <section className="panel span-two panel-scroll">
       <div className="panel-head panel-head-stack">
         <div>
           <p className="panel-kicker">Question Answering</p>
@@ -900,6 +906,7 @@ export default function App() {
           errorByKey={translationErrorByKey}
           onTranslateTurn={translateItem}
         />
+        <ConversationRawPanel session={selectedSession} />
         <QAExplorer
           rows={filteredQa}
           qaCategory={qaCategory}

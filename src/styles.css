@@ -196,6 +196,12 @@ select {
   min-width: 0;
 }
 
+.panel-scroll {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
 .sample-strip-panel {
   margin-bottom: 20px;
 }
@@ -524,6 +530,9 @@ select {
 .timeline {
   max-height: 980px;
   overflow: auto;
+  min-height: 0;
+  padding-right: 4px;
+  scrollbar-gutter: stable;
 }
 
 .timeline-card {
@@ -654,30 +663,22 @@ select {
 .qa-list {
   max-height: 1100px;
   overflow: auto;
-}
-
-.conversation-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1.5fr) minmax(280px, 0.9fr);
-  gap: 16px;
-  align-items: start;
-}
-
-.conversation-raw {
   min-width: 0;
-  padding: 18px;
-  border-radius: 20px;
-  background: rgba(255, 251, 247, 0.88);
-  border: 1px solid rgba(47, 37, 22, 0.1);
+  padding-right: 4px;
+  scrollbar-gutter: stable;
 }
 
-.conversation-raw h3 {
-  margin: 0 0 12px;
-  font-size: 1.05rem;
+.conversation-raw-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .conversation-raw-wrap {
   max-height: 1100px;
+  min-height: 0;
+  overflow: auto;
+  scrollbar-gutter: stable;
 }
 
 .message-card,
@@ -790,8 +791,7 @@ select {
 @media (max-width: 1180px) {
   .hero,
   .top-layout,
-  .dashboard-grid,
-  .conversation-layout {
+  .dashboard-grid {
     grid-template-columns: 1fr;
   }
 
